@@ -8,8 +8,10 @@ from inspect import isclass, getdoc
 from collections import OrderedDict, Hashable
 from six import string_types, itervalues, iteritems, iterkeys
 
+from apispec.ext.marshmallow.swagger import schema2parameters
 from flask import current_app
 from werkzeug.routing import parse_rule
+import marshmallow
 
 from . import fields
 from .model import Model, ModelBase
@@ -281,6 +283,22 @@ class Swagger(object):
                         'in': 'body',
                         'schema': self.serialize_schema(expect),
                     })
+
+            elif isinstance(expect, marshmallow.Schema):
+                if expect.context["_location"] == "json":
+                    params["payload"] = schema2parameters(
+                        expect,
+                        default_in="body",
+                        required=True,
+                    )[0]
+
+                elif expect.context["_location"] == "query":
+                    for p in schema2parameters(expect, default_in="query"):
+                        params.update({p["name"]: p})
+
+                else:
+                    raise RuntimeError
+
         return params
 
     def register_errors(self):

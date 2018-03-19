@@ -5,6 +5,7 @@ import pytest
 
 from textwrap import dedent
 
+import marshmallow as ma
 from flask import url_for, Blueprint
 from werkzeug.datastructures import FileStorage
 
@@ -2820,6 +2821,41 @@ class SwaggerTest(object):
         path = data['paths']['/bar']
         assert 'get' in path
         assert 'post' not in path
+
+
+def test_ma_parameters(api, client):
+    class TestQuerySchema(ma.Schema):
+        test_field = ma.fields.Str()
+
+        class Meta:
+            strict = True
+
+    class TestBodySchema(ma.Schema):
+        test_field = ma.fields.Str()
+
+        class Meta:
+            strict = True
+
+    @api.route("/test")
+    class TestResource(restplus.Resource):
+        @api.parameters(
+            TestQuerySchema(context={"_location": "query"}),
+            TestBodySchema(context={"_location": "json"})
+        )
+        def post(self, query_data, body_data):
+            return {}
+
+    data = client.get_specs()
+    assert data["paths"]["/test"]["post"]["parameters"] == [
+        {u'required': False, u'type': u'string', u'name': u'test_field', u'in': u'query'},
+        {
+            u'required': True,
+            u'in': u'body',
+            u'name': u'payload', u'schema': {
+                u'type': u'object', u'properties': {u'test_field': {u'type': u'string'}}
+            }
+        }
+    ]
 
 
 class SwaggerDeprecatedTest(object):
